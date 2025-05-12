@@ -1,11 +1,9 @@
-# Optimized VCD (Value Change Dump) file processor using PySpark
-# Features:
-# - Parallel processing of multiple VCD files
-# - Memory-efficient parsing
-# - Structured output with schema enforcement
-# - Partitioned Parquet output for efficient storage
 
 import os
+vcd_dir = "all_vcds"
+
+print(f"VCD dir contains {len(os.listdir(vcd_dir))} files")
+print(f"Total size: {sum(os.path.getsize(os.path.join(vcd_dir, f)) for f in os.listdir(vcd_dir))/1e6:.2f} MB")
 import time
 import resource
 from pyspark.sql import SparkSession, Row
@@ -14,7 +12,7 @@ from pyspark.sql.types import StructType, StructField, StringType, IntegerType
 def main():
     """Main execution function for the VCD processing pipeline."""
     
-    #  SETUP
+
     
     # Start timing for performance measurement
     start_wall = time.time()
@@ -34,9 +32,7 @@ def main():
     sc = spark.sparkContext
     sc.setLogLevel("ERROR")
 
-    # *********************
-    # * SCHEMA DEFINITION
-    # *********************
+ 
     
     # Define the output schema for our parsed VCD data
     schema = StructType([
@@ -46,9 +42,6 @@ def main():
         StructField("value", StringType(), False)     # Signal value at this tick
     ])
 
-    # *********************
-    # * PARSING FUNCTIONS
-    # *********************
     
     def parse_vcd(vcd_str, filename):
         """
@@ -58,7 +51,7 @@ def main():
             vcd_str: Complete content of a VCD file as string
             filename: Name of the source file for tracking
             
-        Returns:
+        Yields:
             Tuples of (filename, signal_name, tick, value) for each signal change
         """
         lines = vcd_str.splitlines()
@@ -127,8 +120,7 @@ def main():
             except Exception as e:
                 print(f"Error processing {path}: {str(e)}")
 
-    
-    #DATA PROCESSING
+
     
     # Load all VCD files with dynamic partitioning
     vcd_dir = "all_vcds"
@@ -147,7 +139,7 @@ def main():
     print("\nSample of parsed VCD data:")
     df.show(10, truncate=False)
 
-    # OUTPUT
+
     
     # Write output in partitioned Parquet format for efficient storage
     df.write.mode("overwrite") \
@@ -155,9 +147,6 @@ def main():
         .option("compression", "snappy") \
         .parquet("vcd_output_parquet")
 
-    # *********************
-    # * CLEANUP & METRICS
-    # *********************
     
     # Capture and print timing statistics
     end_wall = time.time()
@@ -166,6 +155,18 @@ def main():
     print(f"Wall time\t{end_wall - start_wall:.3f}s")
     print(f"User CPU\t{end_cpu.ru_utime - start_cpu.ru_utime:.3f}s")
     print(f"System CPU\t{end_cpu.ru_stime - start_cpu.ru_stime:.3f}s")
+
+
+    # Record count and efficiency
+    total_records = df.count()
+    print(f"\nRecords Generated\t{total_records}")
+
+    total_cpu_time = (end_cpu.ru_utime + end_cpu.ru_stime) - (start_cpu.ru_utime + start_cpu.ru_stime)
+    total_wall_time = end_wall - start_wall
+    cpu_efficiency = (total_cpu_time / total_wall_time) * 100
+
+    print(f"CPU Efficiency\t{cpu_efficiency:.1f}%")
+    print(f"Output saved to: {os.path.abspath('vcd_output_parquet')}")
 
     # Clean up Spark session
     spark.stop()
