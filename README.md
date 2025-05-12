@@ -19,6 +19,6 @@ Spark-native parser for VCD (Value Change Dump) files. Converts RTL simulation t
 ## Assumptions
 
 - Signals with the same encoded name across modules are treated as equivalent if their values do not diverge
-- No reconstruction of module hierarchy; signal names are treated as flat strings
+- No reconstruction of module hierarchy; signal names are treated as flat strings (To simplify cross-file analysis, all signal names are treated as flat strings without reintroducing module hierarchy.)
 - Non-numeric values (e.g. 'x', 'z') are mapped to `-1` for compatibility
 - Only value **changes** are recorded; unchanged signals between timestamps are omitted
